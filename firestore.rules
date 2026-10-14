@@ -1,0 +1,106 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidAttendanceId(id) {
+      return id is string && id.size() == 10 && id.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for User profile
+    function isValidUser(data) {
+      return data.keys().hasAll(['displayName', 'email', 'timezone']) &&
+        data.keys().hasOnly(['displayName', 'email', 'timezone', 'createdAt', 'updatedAt']) &&
+        data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 100 &&
+        data.email is string && data.email.size() > 3 && data.email.size() <= 150 &&
+        data.timezone is string && data.timezone.size() > 0 && data.timezone.size() <= 50;
+    }
+
+    // Validation for Attendance
+    function isValidAttendance(data) {
+      return data.keys().hasAll(['localDate', 'checkInAt', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['localDate', 'checkInAt', 'checkOutAt', 'totalMinutes', 'status', 'notes', 'isCorrected', 'createdAt', 'updatedAt']) &&
+        data.localDate is string && data.localDate.size() == 10 && data.localDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        data.checkInAt is timestamp &&
+        data.status in ['active', 'completed', 'incomplete'] &&
+        (!('checkOutAt' in data) || data.checkOutAt == null || data.checkOutAt is timestamp) &&
+        (!('totalMinutes' in data) || data.totalMinutes == null || data.totalMinutes is number) &&
+        (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 500)) &&
+        (!('isCorrected' in data) || data.isCorrected is bool);
+    }
+
+    // Validation for UserPreferences
+    function isValidPreferences(data) {
+      return data.keys().hasAll(['timezone', 'clockFormat', 'weeklySchedule', 'expectedDailyMinutes', 'theme']) &&
+        data.keys().hasOnly(['timezone', 'clockFormat', 'weeklySchedule', 'expectedDailyMinutes', 'theme', 'updatedAt']) &&
+        data.timezone is string && data.timezone.size() > 0 && data.timezone.size() <= 50 &&
+        data.clockFormat in ['12h', '24h'] &&
+        data.weeklySchedule is list && data.weeklySchedule.size() <= 7 &&
+        data.expectedDailyMinutes is number && data.expectedDailyMinutes >= 0 && data.expectedDailyMinutes <= 1440 &&
+        data.theme in ['system', 'light', 'dark'];
+    }
+
+    // User profile documents
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
+      allow delete: if false;
+
+      // Attendance records subcollection
+      match /attendance/{attendanceId} {
+        allow get, list: if isOwner(userId);
+        
+        allow create: if isOwner(userId) &&
+          isValidAttendanceId(attendanceId) &&
+          isValidAttendance(incoming()) &&
+          incoming().localDate == attendanceId &&
+          incoming().status == 'active';
+
+        allow update: if isOwner(userId) &&
+          isValidAttendanceId(attendanceId) &&
+          isValidAttendance(incoming()) &&
+          incoming().localDate == existing().localDate &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().checkInAt == existing().checkInAt;
+
+        allow delete: if false;
+      }
+
+      // Settings subcollection
+      match /settings/{settingId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(settingId) && (
+          settingId != 'preferences' || isValidPreferences(incoming())
+        );
+        allow delete: if false;
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile document for Arsalan Bhai",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "format": "email", "maxLength": 150 },
+        "timezone": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName", "email", "timezone"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Daily attendance record for the user",
+      "type": "object",
+      "properties": {
+        "localDate": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", "maxLength": 10 },
+        "checkInAt": { "type": "string", "format": "date-time" },
+        "checkOutAt": { "type": "string", "format": "date-time" },
+        "totalMinutes": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "completed", "incomplete"] },
+        "notes": { "type": "string", "maxLength": 500 },
+        "isCorrected": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["localDate", "checkInAt", "status", "createdAt"]
+    },
+    "UserPreferences": {
+      "title": "UserPreferences",
+      "description": "User personal preferences and schedule settings",
+      "type": "object",
+      "properties": {
+        "timezone": { "type": "string", "maxLength": 50 },
+        "clockFormat": { "type": "string", "enum": ["12h", "24h"] },
+        "weeklySchedule": { "type": "array" },
+        "expectedDailyMinutes": { "type": "number" },
+        "theme": { "type": "string", "enum": ["system", "light", "dark"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["timezone", "clockFormat", "weeklySchedule", "expectedDailyMinutes", "theme"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Profile document for the authenticated user"
+    },
+    "/users/{userId}/attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Attendance documents for each day with deterministic ID YYYY-MM-DD"
+    },
+    "/users/{userId}/settings/preferences": {
+      "schema": "UserPreferences",
+      "description": "User personal preferences and schedule settings"
+    }
+  }
+}

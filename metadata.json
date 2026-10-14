@@ -1,0 +1,6 @@
+{
+  "name": "WorkTrack",
+  "description": "Personal office attendance and working hours management system for Arsalan Bhai.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
